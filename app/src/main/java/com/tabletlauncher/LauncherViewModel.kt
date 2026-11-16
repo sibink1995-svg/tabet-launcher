@@ -23,6 +23,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tabletlauncher.data.AppEntry
 import com.tabletlauncher.data.Folder
+import com.tabletlauncher.data.HomeShortcut
 import com.tabletlauncher.data.HomeWidget
 import com.tabletlauncher.data.IconShape
 import com.tabletlauncher.data.LauncherSettings
@@ -37,6 +38,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -62,6 +64,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     var settings by mutableStateOf(store.loadSettings())
         private set
     var widgets by mutableStateOf(store.loadWidgets())
+        private set
+    var shortcuts by mutableStateOf(store.loadShortcuts())
         private set
     var suggestions by mutableStateOf<List<AppEntry>>(emptyList())
         private set
@@ -197,6 +201,76 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun togglePin(key: String) {
         pins = if (key in pins) pins - key else pins + key
         store.savePins(pins)
+    }
+
+    // =====================================================================
+    // Home screen app shortcuts
+    // =====================================================================
+
+    private var homeW = 1000f // dp, reported by HomeScreen
+    private var homeH = 700f
+
+    fun setHomeSize(wDp: Float, hDp: Float) {
+        homeW = wDp
+        homeH = hDp
+    }
+
+    private val cellW: Float get() = (settings.iconSizeDp + 32).toFloat()
+    private val cellH: Float get() = (settings.iconSizeDp + if (settings.showLabels) 44 else 24).toFloat()
+    private val cols: Int get() = (homeW / cellW).toInt().coerceAtLeast(1)
+    private val rows: Int
+        get() = ((homeH - HOME_TOP_MARGIN - HOME_BOTTOM_RESERVED) / cellH).toInt().coerceAtLeast(1)
+
+    fun isOnHome(key: String) = shortcuts.any { it.key == key }
+
+    /** Puts the app in the first free grid cell (left to right, top to bottom). */
+    fun addToHome(key: String) {
+        if (isOnHome(key)) return
+        val cw = cellW
+        val ch = cellH
+        val taken = shortcuts.map {
+            Pair((it.x / cw).roundToInt(), ((it.y - HOME_TOP_MARGIN) / ch).roundToInt())
+        }.toSet()
+        var spot: Pair<Int, Int>? = null
+        search@ for (r in 0 until rows) {
+            for (c in 0 until cols) {
+                if (Pair(c, r) !in taken) {
+                    spot = Pair(c, r)
+                    break@search
+                }
+            }
+        }
+        // Screen full: stack on the last cell rather than losing the request
+        val (c, r) = spot ?: Pair(cols - 1, rows - 1)
+        shortcuts = shortcuts + HomeShortcut(key, c * cw, HOME_TOP_MARGIN + r * ch)
+        store.saveShortcuts(shortcuts)
+    }
+
+    fun removeFromHome(key: String) {
+        shortcuts = shortcuts.filterNot { it.key == key }
+        store.saveShortcuts(shortcuts)
+    }
+
+    fun moveShortcutBy(key: String, dx: Float, dy: Float) {
+        shortcuts = shortcuts.map {
+            if (it.key == key) it.copy(x = it.x + dx, y = it.y + dy) else it
+        }
+    }
+
+    /** Called when a drag ends: snap to the nearest grid cell inside the screen, then save. */
+    fun snapShortcut(key: String) {
+        val cw = cellW
+        val ch = cellH
+        shortcuts = shortcuts.map {
+            if (it.key != key) {
+                it
+            } else {
+                val c = (it.x / cw).roundToInt().coerceIn(0, cols - 1)
+                val r = ((it.y - HOME_TOP_MARGIN) / ch).roundToInt().coerceIn(0, rows - 1)
+                it.copy(x = c * cw, y = HOME_TOP_MARGIN + r * ch)
+            }
+        }
+        store.saveShortcuts(shortcuts)
     }
 
     // =====================================================================
@@ -384,5 +458,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private const val SUGGESTION_COUNT = 8
         private const val HALF_LIFE_MS = 3.0 * 24 * 60 * 60 * 1000
         private const val MIN_WIDGET_DP = 96f
+        private const val HOME_TOP_MARGIN = 64f      // keeps clear of the edit-mode bar
+        private const val HOME_BOTTOM_RESERVED = 130f // keeps clear of the dock
     }
 }

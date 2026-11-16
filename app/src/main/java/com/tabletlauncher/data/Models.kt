@@ -50,6 +50,13 @@ data class UsageStat(
     val lastUsed: Long,
 )
 
+/** An app icon placed on the home screen. Position is stored in dp. */
+data class HomeShortcut(
+    val key: String,
+    val x: Float,
+    val y: Float,
+)
+
 /** Position and size are stored in dp. [id] is the AppWidgetHost widget id. */
 data class HomeWidget(
     val id: Int,

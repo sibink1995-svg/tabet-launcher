@@ -99,6 +99,32 @@ class LauncherStore(context: Context) {
             .apply()
     }
 
+    // ---- Home screen app shortcuts ----
+    fun loadShortcuts(): List<HomeShortcut> {
+        val arr = parseArray(prefs.getString("shortcuts", null)) ?: return emptyList()
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            HomeShortcut(
+                key = o.getString("key"),
+                x = o.getDouble("x").toFloat(),
+                y = o.getDouble("y").toFloat(),
+            )
+        }
+    }
+
+    fun saveShortcuts(list: List<HomeShortcut>) {
+        val arr = JSONArray()
+        list.forEach { s ->
+            arr.put(
+                JSONObject()
+                    .put("key", s.key)
+                    .put("x", s.x.toDouble())
+                    .put("y", s.y.toDouble())
+            )
+        }
+        prefs.edit().putString("shortcuts", arr.toString()).apply()
+    }
+
     // ---- Home screen widgets ----
     fun loadWidgets(): List<HomeWidget> {
         val arr = parseArray(prefs.getString("widgets", null)) ?: return emptyList()

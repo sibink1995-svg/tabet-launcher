@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -55,6 +56,7 @@ fun HomeScreen(
     Box(
         Modifier
             .fillMaxSize()
+            .onSizeChanged { vm.setHomeSize(it.width / density, it.height / density) }
             // Long-press empty space -> edit mode (add / move / resize widgets)
             .pointerInput(Unit) {
                 detectTapGestures(onLongPress = { vm.editMode = true })
@@ -130,6 +132,53 @@ fun HomeScreen(
                                 ) {
                                     Text("↘", color = Color.White)
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---------------- App shortcuts on the home screen ----------------
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)) {
+            vm.shortcuts.forEach { sc ->
+                val app = vm.appMap[sc.key] ?: return@forEach
+                key(sc.key) {
+                    Box(Modifier.offset(sc.x.dp, sc.y.dp)) {
+                        AppIcon(
+                            app = app,
+                            vm = vm,
+                            onClick = { vm.launch(app) },
+                            onLongClick = { onAppLongClick(app) },
+                        )
+                        if (vm.editMode) {
+                            // Drag to move; snaps to the grid on release
+                            Box(
+                                Modifier
+                                    .matchParentSize()
+                                    .background(Color(0x33000000), RoundedCornerShape(16.dp))
+                                    .pointerInput(sc.key) {
+                                        detectDragGestures(
+                                            onDragEnd = { vm.snapShortcut(sc.key) },
+                                            onDragCancel = { vm.snapShortcut(sc.key) },
+                                        ) { change, drag ->
+                                            change.consume()
+                                            vm.moveShortcutBy(sc.key, drag.x / density, drag.y / density)
+                                        }
+                                    }
+                            )
+                            IconButton(
+                                onClick = { vm.removeFromHome(sc.key) },
+                                modifier = Modifier.align(Alignment.TopEnd).size(28.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "Remove from home screen",
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .background(Color(0xAA000000), CircleShape),
+                                )
                             }
                         }
                     }

@@ -5,6 +5,7 @@ package com.tabletlauncher.ui
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import android.provider.Settings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
@@ -144,6 +146,19 @@ fun AppActionsDialog(
         ActionRow(Icons.Filled.PushPin, if (pinned) "Unpin" else "Pin (top of drawer & dock)") {
             vm.togglePin(app.key)
             onDismiss()
+        }
+        if (vm.isOnHome(app.key)) {
+            ActionRow(Icons.Filled.Home, "Remove from home screen") {
+                vm.removeFromHome(app.key)
+                onDismiss()
+            }
+        } else {
+            ActionRow(Icons.Filled.Home, "Add to home screen") {
+                vm.addToHome(app.key)
+                vm.drawerOpen = false // go to the home screen so the new icon is visible
+                Toast.makeText(ctx, "${app.label} added to home screen", Toast.LENGTH_SHORT).show()
+                onDismiss()
+            }
         }
         ActionRow(Icons.Filled.Folder, "Add to folder…", onAddToFolder)
         if (vm.folderOf(app.key) != null) {
